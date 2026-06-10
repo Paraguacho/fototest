@@ -36,7 +36,7 @@
     <nav class="bg-white border-b border-slate-200 px-8 py-4 flex justify-between items-center sticky top-0 z-10 shadow-sm">
         <div>
             <h1 class="text-2xl font-black text-slate-800 tracking-tight">Editor Masivo <span class="text-blue-600">EraDigital</span></h1>
-            <p class="text-sm text-slate-500">Posiciones matemáticas exactas (24.1px, 33.1px), barras de 720x10px color #4A78B3.</p>
+            <p class="text-sm text-slate-500">Barras fijas (basadas en 65px) y texto de tamaño dinámico independiente.</p>
         </div>
         <div class="flex gap-4 items-center">
             <div class="flex flex-col">
@@ -247,11 +247,13 @@
             const lineas = organizarTexto(texto);
             if (lineas.length === 0) return;
 
-            // Variables de Texto y Estilo
-            const fontSize = 65 * scale; 
+            // --- NUEVA LÓGICA DE TAMAÑOS ---
+            const baseFontSize = 65 * scale; // Sirve de ancla para las barras, NO CAMBIAR
+            const fontSize = 75 * scale;     // <--- AQUÍ PUEDES CAMBIAR EL TAMAÑO REAL DEL TEXTO
+            
             ctx.font = `700 ${fontSize}px "League Spartan", sans-serif`;
             ctx.textAlign = 'center';
-            ctx.textBaseline = 'top'; // Cambiado a 'top' para una medición más precisa de los saltos
+            ctx.textBaseline = 'middle'; // Usamos middle para centrar perfectamente el texto
             
             // Variables de distancias exactas (Solicitadas)
             const colorAzul = '#4A78B3'; 
@@ -260,16 +262,15 @@
             const margenInferior = 24.1 * scale;
             const separacion = 33.1 * scale;
             
-            const lineHeight = fontSize * 1.1; 
-            const textHeight = lineas.length * lineHeight; 
+            // Calculamos las posiciones usando la FUENTE BASE (65px) para que las barras queden fijas
+            const baseLineHeight = baseFontSize * 1.1; 
+            const baseTextHeight = lineas.length * baseLineHeight; 
             
-            // Cálculos dinámicos de posición en Y (De abajo hacia arriba)
             const bottomBarY = canvas.height - margenInferior - grosorLinea;
             const textBottomEdge = bottomBarY - separacion;
-            const textTopEdge = textBottomEdge - textHeight;
+            const textTopEdge = textBottomEdge - baseTextHeight;
             const topBarY = textTopEdge - separacion - grosorLinea;
 
-            // Calcular el centro en X para las barras
             const barX = (canvas.width - barWidth) / 2;
 
             // Dibujar Sombra Exacta parametrizada (Solo para el texto)
@@ -281,10 +282,16 @@
             ctx.shadowOffsetX = Math.cos(anguloRad) * distancia; 
             ctx.shadowOffsetY = Math.sin(anguloRad) * distancia; 
 
+            // Matemáticas para centrar el texto con su TAMAÑO NUEVO dentro del bloque fijo
+            const textCenterY = (textTopEdge + textBottomEdge) / 2;
+            const actualLineHeight = fontSize * 1.1;
+            const actualTextHeight = lineas.length * actualLineHeight;
+            const startY = textCenterY - (actualTextHeight / 2) + (actualLineHeight / 2);
+
             // Dibujar el texto
             ctx.fillStyle = '#FFFFFF';
             lineas.forEach((linea, index) => {
-                ctx.fillText(linea, canvas.width / 2, textTopEdge + (index * lineHeight));
+                ctx.fillText(linea, canvas.width / 2, startY + (index * actualLineHeight));
             });
 
             // Resetear sombra para que no afecte a las líneas azules
@@ -336,6 +343,8 @@
 
             for (let lote of lotes) {
                 const idNum = lote.getAttribute('data-id');
+                const loteId = lote.id; 
+                
                 const mainImgInput = lote.querySelector('.main-img-input');
                 const mainText = lote.querySelector('.main-text-input').value;
                 const extrasInputs = lote.querySelectorAll('.extra-img-input');
@@ -345,11 +354,13 @@
 
                 if (mainImgInput.files.length > 0) {
                     const canvasExport = document.createElement('canvas'); 
-                    const img = window.imagenesMemoria[`lote-${idNum}`]; 
+                    const img = window.imagenesMemoria[loteId]; 
                     
-                    dibujarEdicion(canvasExport, img, mainText, false); 
-                    const blobPrincipal = await new Promise(res => canvasExport.toBlob(res, 'image/jpeg', 0.95));
-                    folder.file(`1_Principal.jpg`, blobPrincipal);
+                    if (img) {
+                        dibujarEdicion(canvasExport, img, mainText, false); 
+                        const blobPrincipal = await new Promise(res => canvasExport.toBlob(res, 'image/jpeg', 0.95));
+                        folder.file(`1_Principal.jpg`, blobPrincipal);
+                    }
                 }
 
                 let extraCount = 2;
