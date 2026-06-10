@@ -36,7 +36,7 @@
     <nav class="bg-white border-b border-slate-200 px-8 py-4 flex justify-between items-center sticky top-0 z-10 shadow-sm">
         <div>
             <h1 class="text-2xl font-black text-slate-800 tracking-tight">Editor Masivo <span class="text-blue-600">EraDigital</span></h1>
-            <p class="text-sm text-slate-500">Previsualización en tiempo real y soporte para salto de línea manual.</p>
+            <p class="text-sm text-slate-500">Posiciones matemáticas exactas (24.1px, 33.1px), barras de 720x10px color #4A78B3.</p>
         </div>
         <div class="flex gap-4 items-center">
             <div class="flex flex-col">
@@ -66,7 +66,6 @@
         let loteCount = 0;
         let logoImage = null;
         
-        // Objeto global para almacenar en memoria las fotos subidas y optimizar la previsualización
         window.imagenesMemoria = {};
 
         document.fonts.load('700 10px "League Spartan"').then(() => {
@@ -108,8 +107,8 @@
                         </div>
 
                         <div class="flex-grow">
-                            <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Titular (Usa "Enter" para controlar los saltos de línea)</label>
-                            <textarea oninput="actualizarPreview('${loteId}')" class="main-text-input w-full border border-slate-300 rounded p-3 text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none h-44 font-['League_Spartan'] font-bold text-xl uppercase" placeholder="ESCRIBE EL TITULAR AQUÍ..."></textarea>
+                            <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Titular (Usa "Enter" para saltos de línea)</label>
+                            <textarea oninput="actualizarPreview('${loteId}')" class="main-text-input w-full border border-slate-300 rounded p-3 text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none h-44 font-['League_Spartan'] font-bold text-xl" placeholder="Escribe el titular aquí..."></textarea>
                         </div>
                     </div>
 
@@ -147,7 +146,7 @@
 
         function eliminarElemento(id) { 
             document.getElementById(id)?.remove();
-            delete window.imagenesMemoria[id]; // Limpiar memoria
+            delete window.imagenesMemoria[id];
         }
 
         /* ==========================================
@@ -162,21 +161,19 @@
             });
         }
 
-        // Carga la imagen en memoria y dispara el primer renderizado
         async function cargarImagenPrincipal(input, loteId) {
             if (input.files && input.files[0]) {
                 const img = await fileToImage(input.files[0]);
-                window.imagenesMemoria[loteId] = img; // Guardar foto cruda
+                window.imagenesMemoria[loteId] = img; 
                 
                 const loteElement = document.getElementById(loteId);
                 loteElement.querySelector('.preview-placeholder').style.display = 'none';
                 loteElement.querySelector('.preview-canvas').style.opacity = '1';
                 
-                actualizarPreview(loteId); // Renderizar
+                actualizarPreview(loteId);
             }
         }
 
-        // Para las extras, solo mostramos la miniatura nativa, no ocupan canvas en vivo
         function cargarImagenExtra(input) {
             if (input.files && input.files[0]) {
                 const parent = input.parentElement;
@@ -191,19 +188,15 @@
             }
         }
 
-        // Función híbrida: Respeta SALTOS DE LÍNEA ('\n') o lo hace automático
         function organizarTexto(texto) {
-            // 1. MODO MANUAL: Si detecta saltos de línea, asume control del usuario
             if (texto.includes('\n')) {
-                return texto.toUpperCase()
-                            .split('\n')
+                return texto.split('\n')
                             .map(l => l.trim())
                             .filter(l => l !== '')
-                            .slice(0, 4); // Max 4 líneas para no dañar diseño
+                            .slice(0, 4); 
             }
 
-            // 2. MODO AUTOMÁTICO
-            const palabras = texto.trim().toUpperCase().replace(/\s+/g, ' ').split(' ');
+            const palabras = texto.trim().replace(/\s+/g, ' ').split(' ');
             const palabrasLimitadas = palabras.slice(0, 12); 
             const lineas = [];
             
@@ -224,27 +217,23 @@
             return lineas;
         }
 
-        // Disparado en cada pulsación del teclado
         function actualizarPreview(loteId) {
             const lote = document.getElementById(loteId);
             const img = window.imagenesMemoria[loteId];
-            if (!img) return; // Si no hay foto, no hace nada
+            if (!img) return;
 
             const texto = lote.querySelector('.main-text-input').value;
             const canvas = lote.querySelector('.preview-canvas');
             
-            // Reutilizamos el motor central para pintar (modo miniatura: true)
             dibujarEdicion(canvas, img, texto, true);
         }
 
         /* ==========================================
            MOTOR DE RENDERIZADO CENTRAL
         ========================================== */
-        // Dibuja el diseño final. Usado tanto para la Interfaz (en vivo) como para el ZIP
         function dibujarEdicion(canvas, img, texto, isPreview = false) {
             const ctx = canvas.getContext('2d');
             
-            // Si es para previsualización, reducimos resolución para que la escritura no tenga lag
             let scale = 1;
             if (isPreview && img.width > 1000) {
                 scale = 1000 / img.width; 
@@ -253,65 +242,66 @@
             canvas.width = img.width * scale;
             canvas.height = img.height * scale;
             
-            // 1. Imagen fondo
             ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
             const lineas = organizarTexto(texto);
-            if (lineas.length === 0) return; // Si borró todo, se queda la pura foto
+            if (lineas.length === 0) return;
 
-            // 2. Variables proporcionales
-            const fontSize = Math.floor(canvas.width * 0.055); 
+            // Variables de Texto y Estilo
+            const fontSize = 65 * scale; 
             ctx.font = `700 ${fontSize}px "League Spartan", sans-serif`;
             ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
+            ctx.textBaseline = 'top'; // Cambiado a 'top' para una medición más precisa de los saltos
             
-            const colorAzul = '#2A5C8A'; 
+            // Variables de distancias exactas (Solicitadas)
+            const colorAzul = '#4A78B3'; 
+            const grosorLinea = 10 * scale; 
+            const barWidth = 720 * scale;
+            const margenInferior = 24.1 * scale;
+            const separacion = 33.1 * scale;
+            
             const lineHeight = fontSize * 1.1; 
-            // La altura de la caja depende 100% de cuántas líneas reales haya (dinámico)
-            const alturaTotalTexto = lineas.length * lineHeight; 
+            const textHeight = lineas.length * lineHeight; 
             
-            const margenLateral = canvas.width * 0.20;
-            const maxWidth = canvas.width - (margenLateral * 2);
-            const posicionYInicial = canvas.height - alturaTotalTexto - (canvas.height * 0.10);
-            
-            const grosorLinea = Math.floor(canvas.height * 0.008);
-            const paddingLineas = fontSize * 0.8;
+            // Cálculos dinámicos de posición en Y (De abajo hacia arriba)
+            const bottomBarY = canvas.height - margenInferior - grosorLinea;
+            const textBottomEdge = bottomBarY - separacion;
+            const textTopEdge = textBottomEdge - textHeight;
+            const topBarY = textTopEdge - separacion - grosorLinea;
 
-            const boxTop = posicionYInicial - paddingLineas - grosorLinea;
-            const boxBottom = posicionYInicial + alturaTotalTexto - lineHeight + paddingLineas + grosorLinea;
-            const boxHeight = boxBottom - boxTop;
+            // Calcular el centro en X para las barras
+            const barX = (canvas.width - barWidth) / 2;
 
-            // 3. Degradado negro como marco
-            const gradient = ctx.createLinearGradient(0, boxTop, 0, boxBottom);
-            gradient.addColorStop(0, 'rgba(0, 0, 0, 0.2)');   
-            gradient.addColorStop(1, 'rgba(0, 0, 0, 0.85)');  
-            
-            ctx.fillStyle = gradient;
-            ctx.fillRect(margenLateral, boxTop, maxWidth, boxHeight);
+            // Dibujar Sombra Exacta parametrizada (Solo para el texto)
+            const anguloRad = -45 * (Math.PI / 180);
+            const distancia = 25 * scale;
 
-            // 4. Texto + Sombra
-            ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
-            ctx.shadowBlur = Math.floor(fontSize * 0.1);
-            ctx.shadowOffsetX = Math.floor(fontSize * 0.05);
-            ctx.shadowOffsetY = Math.floor(fontSize * 0.05);
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.75)'; 
+            ctx.shadowBlur = 100 * scale; 
+            ctx.shadowOffsetX = Math.cos(anguloRad) * distancia; 
+            ctx.shadowOffsetY = Math.sin(anguloRad) * distancia; 
 
+            // Dibujar el texto
             ctx.fillStyle = '#FFFFFF';
             lineas.forEach((linea, index) => {
-                ctx.fillText(linea, canvas.width / 2, posicionYInicial + (index * lineHeight));
+                ctx.fillText(linea, canvas.width / 2, textTopEdge + (index * lineHeight));
             });
 
-            // 5. Líneas Azules
+            // Resetear sombra para que no afecte a las líneas azules
             ctx.shadowColor = 'transparent';
-            ctx.shadowBlur = 0; ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
+            ctx.shadowBlur = 0; 
+            ctx.shadowOffsetX = 0; 
+            ctx.shadowOffsetY = 0;
 
+            // Dibujar las barras azules exactas
             ctx.fillStyle = colorAzul;
-            ctx.fillRect(margenLateral, posicionYInicial - paddingLineas, maxWidth, grosorLinea);
-            ctx.fillRect(margenLateral, posicionYInicial + alturaTotalTexto - lineHeight + paddingLineas, maxWidth, grosorLinea);
+            ctx.fillRect(barX, topBarY, barWidth, grosorLinea); // Barra superior
+            ctx.fillRect(barX, bottomBarY, barWidth, grosorLinea); // Barra inferior
         }
 
         async function procesarImagenExtra(imgFile) {
             const img = await fileToImage(imgFile);
-            const canvas = document.createElement('canvas'); // Offscreen canvas para exportar
+            const canvas = document.createElement('canvas'); 
             const ctx = canvas.getContext('2d');
             
             canvas.width = img.width;
@@ -354,10 +344,10 @@
                 const folder = zip.folder(folderName);
 
                 if (mainImgInput.files.length > 0) {
-                    const canvasExport = document.createElement('canvas'); // Canvas oculto full-res
-                    const img = window.imagenesMemoria[`lote-${idNum}`]; // Recupera de memoria
+                    const canvasExport = document.createElement('canvas'); 
+                    const img = window.imagenesMemoria[`lote-${idNum}`]; 
                     
-                    dibujarEdicion(canvasExport, img, mainText, false); // false = Full Resolución
+                    dibujarEdicion(canvasExport, img, mainText, false); 
                     const blobPrincipal = await new Promise(res => canvasExport.toBlob(res, 'image/jpeg', 0.95));
                     folder.file(`1_Principal.jpg`, blobPrincipal);
                 }
