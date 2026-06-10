@@ -36,7 +36,7 @@
     <nav class="bg-white border-b border-slate-200 px-8 py-4 flex justify-between items-center sticky top-0 z-10 shadow-sm">
         <div>
             <h1 class="text-2xl font-black text-slate-800 tracking-tight">Editor Masivo <span class="text-blue-600">EraDigital</span></h1>
-            <p class="text-sm text-slate-500">Formato 1440x1440 automático, subida múltiple y memoria robusta.</p>
+            <p class="text-sm text-slate-500">Sombra arreglada, formato 1440x1440 automático y subida múltiple.</p>
         </div>
         <div class="flex gap-4 items-center">
             <button onclick="procesarYExportar()" id="btn-exportar" class="px-6 py-2 text-sm font-bold text-white bg-blue-600 rounded hover:bg-blue-700 shadow-sm transition flex items-center gap-2">
@@ -61,10 +61,10 @@
     <script>
         let loteCount = 0;
         
-        // Memoria Global: Previene bugs de exportación guardando directamente los objetos Image.
+        // Memoria Global
         window.lotesData = {};
 
-        // Cargar el LOGOCIRCULO.png automáticamente
+        // Cargar el LOGOCIRCULO.png
         let logoImage = new Image();
         logoImage.src = 'LOGOCIRCULO.png';
         logoImage.onload = () => console.log('LOGOCIRCULO.png cargado correctamente como marca de agua.');
@@ -147,7 +147,7 @@
         async function cargarImagenPrincipal(input, loteId) {
             if (input.files && input.files[0]) {
                 const img = await fileToImage(input.files[0]);
-                window.lotesData[loteId].mainImg = img; // Guardar en memoria robusta
+                window.lotesData[loteId].mainImg = img; 
                 
                 const loteElement = document.getElementById(loteId);
                 loteElement.querySelector('.preview-placeholder').style.display = 'none';
@@ -157,7 +157,6 @@
             }
         }
 
-        // Nueva función para procesar MULTIPLES imágenes de un solo golpe
         async function manejarExtrasMultiples(input, loteId) {
             if (!input.files || input.files.length === 0) return;
             
@@ -168,10 +167,8 @@
                 const img = await fileToImage(file);
                 const extraId = `extra-${Date.now()}-${Math.floor(Math.random()*1000)}`;
                 
-                // Guardamos la imagen en el arreglo de extras de este lote
                 window.lotesData[loteId].extras.push({ id: extraId, img: img });
 
-                // Renderizamos la miniatura visual en la UI
                 const html = `
                     <div id="${extraId}" class="extra-item flex gap-4 items-center bg-white border border-slate-200 rounded p-3 pl-12 relative transition-all">
                         <div class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300"><i class="fa-solid fa-arrow-turn-up rotate-90"></i></div>
@@ -191,13 +188,11 @@
                 container.insertAdjacentHTML('beforeend', html);
             }
             
-            input.value = ""; // Limpiamos el input para que pueda volver a agregar más si quiere
+            input.value = ""; 
         }
 
         function eliminarExtra(loteId, extraId) {
-            // Eliminar de memoria
             window.lotesData[loteId].extras = window.lotesData[loteId].extras.filter(e => e.id !== extraId);
-            // Eliminar de UI
             document.getElementById(extraId)?.remove();
         }
 
@@ -241,7 +236,6 @@
         /* ==========================================
            MOTOR DE RENDERIZADO CENTRAL
         ========================================== */
-        // Dibuja la foto centrada y cortada (Center-Crop) para llenar el Canvas sin estirarse
         function dibujarFondoRecortado(ctx, img, targetSize) {
             const scaleCrop = Math.max(targetSize / img.width, targetSize / img.height);
             const x = (targetSize / 2) - (img.width / 2) * scaleCrop;
@@ -252,15 +246,13 @@
         function dibujarEdicion(canvas, img, texto, isPreview = false) {
             const ctx = canvas.getContext('2d');
             
-            // LA MAGIA DEL 1440x1440
-            // Si es preview usamos un tamaño menor (800) para rendimiento, si es exportación forzamos los 1440 px.
             const TARGET_SIZE = isPreview ? 800 : 1440;
-            const scale = TARGET_SIZE / 1440; // Escala base 1 al exportar.
+            const scale = TARGET_SIZE / 1440; 
 
             canvas.width = TARGET_SIZE;
             canvas.height = TARGET_SIZE;
             
-            // 1. Dibujar Imagen de Fondo con recorte perfecto al centro
+            // 1. Dibujar Imagen de Fondo
             dibujarFondoRecortado(ctx, img, TARGET_SIZE);
 
             // 2. Dibujar Marca de Agua (LOGOCIRCULO.png)
@@ -302,11 +294,15 @@
 
             const barX = (canvas.width - barWidth) / 2;
 
-            // 4. Dibujar Sombra Exacta
+            // -----------------------------------------------------
+            // 4. DIBUJAR SOMBRA EXACTA (CORRECCIÓN APLICADA AQUÍ)
+            // -----------------------------------------------------g
             const anguloRad = -45 * (Math.PI / 180);
             const distancia = 25 * scale;
 
-            ctx.shadowColor = 'rgba(0, 0, 0, 0.75)'; 
+            // Se redujo el blur de 100 a 15 y se subió la opacidad a 0.85 
+            // para igualar visualmente el efecto "desenfocar" de BeFunky en HTML Canvas.
+            ctx.shadowColor = 'rgba(0, 0, 0, 1)'; 
             ctx.shadowBlur = 100 * scale; 
             ctx.shadowOffsetX = Math.cos(anguloRad) * distancia; 
             ctx.shadowOffsetY = Math.sin(anguloRad) * distancia; 
@@ -316,12 +312,13 @@
             const actualTextHeight = lineas.length * actualLineHeight;
             const startY = textCenterY - (actualTextHeight / 2) + (actualLineHeight / 2);
 
-            // 5. Dibujar el texto
+            // 5. Dibujar el texto (La sombra se dibuja automáticamente aquí)
             ctx.fillStyle = '#FFFFFF';
             lineas.forEach((linea, index) => {
                 ctx.fillText(linea, canvas.width / 2, startY + (index * actualLineHeight));
             });
 
+            // Limpiar la sombra para no afectar a los siguientes elementos (Las barras)
             ctx.shadowColor = 'transparent';
             ctx.shadowBlur = 0; 
             ctx.shadowOffsetX = 0; 
@@ -337,15 +334,12 @@
             const canvas = document.createElement('canvas'); 
             const ctx = canvas.getContext('2d');
             
-            // Forzar a 1440x1440
             const TARGET_SIZE = 1440;
             canvas.width = TARGET_SIZE;
             canvas.height = TARGET_SIZE;
 
-            // Cortar y rellenar fondo
             dibujarFondoRecortado(ctx, img, TARGET_SIZE);
 
-            // Marca de Agua (84x84px, 10% opacidad, recortada a la mitad)
             if (logoImage && logoImage.complete && logoImage.naturalHeight !== 0) {
                 ctx.save();
                 ctx.globalAlpha = 0.10; 
@@ -378,21 +372,18 @@
                 const idNum = lote.getAttribute('data-id');
                 const loteId = lote.id; 
                 
-                // Leemos los datos directamente de la memoria robusta
                 const data = window.lotesData[loteId];
-                if (!data || !data.mainImg) continue; // Si esta noticia no tiene foto principal, la ignoramos
+                if (!data || !data.mainImg) continue; 
 
                 const mainText = lote.querySelector('.main-text-input').value;
                 const folderName = `Noticia_${idNum}`;
                 const folder = zip.folder(folderName);
 
-                // Exportar Principal
                 const canvasExport = document.createElement('canvas'); 
                 dibujarEdicion(canvasExport, data.mainImg, mainText, false); 
                 const blobPrincipal = await new Promise(res => canvasExport.toBlob(res, 'image/jpeg', 0.95));
                 folder.file(`1_Principal.jpg`, blobPrincipal);
 
-                // Exportar Extras iterando la memoria
                 let extraCount = 2;
                 for (let extra of data.extras) {
                     const blobExtra = await procesarImagenExtra(extra.img);
