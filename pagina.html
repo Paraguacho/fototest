@@ -36,13 +36,9 @@
     <nav class="bg-white border-b border-slate-200 px-8 py-4 flex justify-between items-center sticky top-0 z-10 shadow-sm">
         <div>
             <h1 class="text-2xl font-black text-slate-800 tracking-tight">Editor Masivo <span class="text-blue-600">EraDigital</span></h1>
-            <p class="text-sm text-slate-500">Barras fijas (basadas en 65px) y texto de tamaño dinámico independiente.</p>
+            <p class="text-sm text-slate-500">Marca de agua automática (LOGOCIRCULO.png), 10% opacidad, recortada a la mitad superior.</p>
         </div>
         <div class="flex gap-4 items-center">
-            <div class="flex flex-col">
-                <label class="text-xs font-bold text-slate-500 uppercase">Logo (Marca de agua)</label>
-                <input type="file" id="logo-input" accept="image/*" class="text-sm text-slate-500 file:mr-2 file:py-1 file:px-3 file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer">
-            </div>
             <button onclick="procesarYExportar()" id="btn-exportar" class="px-6 py-2 text-sm font-bold text-white bg-blue-600 rounded hover:bg-blue-700 shadow-sm transition flex items-center gap-2">
                 <i class="fa-solid fa-download"></i> Exportar Todo (.zip)
             </button>
@@ -64,16 +60,17 @@
 
     <script>
         let loteCount = 0;
-        let logoImage = null;
         
+        // Cargar el LOGOCIRCULO.png automáticamente desde la carpeta del proyecto
+        let logoImage = new Image();
+        logoImage.src = 'LOGOCIRCULO.png';
+        logoImage.onload = () => console.log('LOGOCIRCULO.png cargado correctamente como marca de agua.');
+        logoImage.onerror = () => console.warn('No se encontró LOGOCIRCULO.png en la carpeta. Asegúrate de que el archivo se llame exactamente así.');
+
         window.imagenesMemoria = {};
 
         document.fonts.load('700 10px "League Spartan"').then(() => {
             console.log('Fuente lista.');
-        });
-
-        document.getElementById('logo-input').addEventListener('change', async (e) => {
-            if (e.target.files && e.target.files[0]) logoImage = await fileToImage(e.target.files[0]);
         });
 
         document.addEventListener('DOMContentLoaded', () => agregarLote());
@@ -242,27 +239,43 @@
             canvas.width = img.width * scale;
             canvas.height = img.height * scale;
             
+            // 1. Dibujar Imagen de Fondo
             ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+            // 2. Dibujar Marca de Agua (LOGOCIRCULO.png)
+            if (logoImage && logoImage.complete && logoImage.naturalHeight !== 0) {
+                ctx.save();
+                ctx.globalAlpha = 0.10; // Opacidad 10%
+                
+                // Aplicamos el tamaño de 998.4px y centramos horizontalmente
+                const logoSize = 998.4 * scale;
+                const logoX = (canvas.width - logoSize) / 2;
+                
+                // Anclamos la Y a la mitad negativa de su altura. 
+                // Esto garantiza que SIEMPRE se corte a la mitad exacta en la parte superior del canvas, sin importar la altura de las barras azules.
+                const logoY = -(logoSize / 2); 
+                
+                ctx.drawImage(logoImage, logoX, logoY, logoSize, logoSize);
+                ctx.restore();
+            }
 
             const lineas = organizarTexto(texto);
             if (lineas.length === 0) return;
 
-            // --- NUEVA LÓGICA DE TAMAÑOS ---
-            const baseFontSize = 65 * scale; // Sirve de ancla para las barras, NO CAMBIAR
-            const fontSize = 75 * scale;     // <--- AQUÍ PUEDES CAMBIAR EL TAMAÑO REAL DEL TEXTO
+            // 3. Variables de Texto y Barras
+            const baseFontSize = 65 * scale; 
+            const fontSize = 85 * scale;     
             
             ctx.font = `700 ${fontSize}px "League Spartan", sans-serif`;
             ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle'; // Usamos middle para centrar perfectamente el texto
+            ctx.textBaseline = 'middle'; 
             
-            // Variables de distancias exactas (Solicitadas)
             const colorAzul = '#4A78B3'; 
             const grosorLinea = 10 * scale; 
             const barWidth = 720 * scale;
             const margenInferior = 24.1 * scale;
             const separacion = 33.1 * scale;
             
-            // Calculamos las posiciones usando la FUENTE BASE (65px) para que las barras queden fijas
             const baseLineHeight = baseFontSize * 1.1; 
             const baseTextHeight = lineas.length * baseLineHeight; 
             
@@ -273,7 +286,7 @@
 
             const barX = (canvas.width - barWidth) / 2;
 
-            // Dibujar Sombra Exacta parametrizada (Solo para el texto)
+            // 4. Dibujar Sombra Exacta parametrizada (Solo para el texto)
             const anguloRad = -45 * (Math.PI / 180);
             const distancia = 25 * scale;
 
@@ -282,28 +295,28 @@
             ctx.shadowOffsetX = Math.cos(anguloRad) * distancia; 
             ctx.shadowOffsetY = Math.sin(anguloRad) * distancia; 
 
-            // Matemáticas para centrar el texto con su TAMAÑO NUEVO dentro del bloque fijo
+            // Matemáticas para centrar el texto con su TAMAÑO NUEVO dentro del bloque
             const textCenterY = (textTopEdge + textBottomEdge) / 2;
             const actualLineHeight = fontSize * 1.1;
             const actualTextHeight = lineas.length * actualLineHeight;
             const startY = textCenterY - (actualTextHeight / 2) + (actualLineHeight / 2);
 
-            // Dibujar el texto
+            // 5. Dibujar el texto
             ctx.fillStyle = '#FFFFFF';
             lineas.forEach((linea, index) => {
                 ctx.fillText(linea, canvas.width / 2, startY + (index * actualLineHeight));
             });
 
-            // Resetear sombra para que no afecte a las líneas azules
+            // Resetear sombra
             ctx.shadowColor = 'transparent';
             ctx.shadowBlur = 0; 
             ctx.shadowOffsetX = 0; 
             ctx.shadowOffsetY = 0;
 
-            // Dibujar las barras azules exactas
+            // 6. Dibujar las barras azules
             ctx.fillStyle = colorAzul;
-            ctx.fillRect(barX, topBarY, barWidth, grosorLinea); // Barra superior
-            ctx.fillRect(barX, bottomBarY, barWidth, grosorLinea); // Barra inferior
+            ctx.fillRect(barX, topBarY, barWidth, grosorLinea); 
+            ctx.fillRect(barX, bottomBarY, barWidth, grosorLinea); 
         }
 
         async function procesarImagenExtra(imgFile) {
@@ -311,18 +324,22 @@
             const canvas = document.createElement('canvas'); 
             const ctx = canvas.getContext('2d');
             
-            canvas.width = img.width;
-            canvas.height = img.height;
-            ctx.drawImage(img, 0, 0);
+            let scale = 1;
+            canvas.width = img.width * scale;
+            canvas.height = img.height * scale;
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-            if (logoImage) {
-                const logoWidth = canvas.width * 0.15;
-                const proporcion = logoWidth / logoImage.width;
-                const logoHeight = logoImage.height * proporcion;
-                const x = (canvas.width / 2) - (logoWidth / 2);
-                const y = canvas.height * 0.05;
+            // Marca de Agua para las imágenes extra (Mismas propiedades: 10% opacidad, 998.4px, recortada a la mitad)
+            if (logoImage && logoImage.complete && logoImage.naturalHeight !== 0) {
+                ctx.save();
+                ctx.globalAlpha = 0.10; 
+                
+                const logoSize = 998.4 * scale;
+                const logoX = (canvas.width - logoSize) / 2;
+                const logoY = -(logoSize / 2); 
 
-                ctx.drawImage(logoImage, x, y, logoWidth, logoHeight);
+                ctx.drawImage(logoImage, logoX, logoY, logoSize, logoSize);
+                ctx.restore();
             }
             return new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.95));
         }
