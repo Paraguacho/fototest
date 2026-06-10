@@ -36,7 +36,7 @@
     <nav class="bg-white border-b border-slate-200 px-8 py-4 flex justify-between items-center sticky top-0 z-10 shadow-sm">
         <div>
             <h1 class="text-2xl font-black text-slate-800 tracking-tight">Editor Masivo <span class="text-blue-600">EraDigital</span></h1>
-            <p class="text-sm text-slate-500">Marca de agua automática (LOGOCIRCULO.png), 10% opacidad, recortada a la mitad superior.</p>
+            <p class="text-sm text-slate-500">Logo a 84x84px (mitad superior recortada), opacidad 10%.</p>
         </div>
         <div class="flex gap-4 items-center">
             <button onclick="procesarYExportar()" id="btn-exportar" class="px-6 py-2 text-sm font-bold text-white bg-blue-600 rounded hover:bg-blue-700 shadow-sm transition flex items-center gap-2">
@@ -61,7 +61,7 @@
     <script>
         let loteCount = 0;
         
-        // Cargar el LOGOCIRCULO.png automáticamente desde la carpeta del proyecto
+        // Cargar el LOGOCIRCULO.png automáticamente
         let logoImage = new Image();
         logoImage.src = 'LOGOCIRCULO.png';
         logoImage.onload = () => console.log('LOGOCIRCULO.png cargado correctamente como marca de agua.');
@@ -247,15 +247,18 @@
                 ctx.save();
                 ctx.globalAlpha = 0.10; // Opacidad 10%
                 
-                // Aplicamos el tamaño de 998.4px y centramos horizontalmente
-                const logoSize = 998.4 * scale;
-                const logoX = (canvas.width - logoSize) / 2;
+                // Tamaño exacto de 84x84px
+                const logoWidth = 84 * scale;
+                const logoHeight = 84 * scale;
                 
-                // Anclamos la Y a la mitad negativa de su altura. 
-                // Esto garantiza que SIEMPRE se corte a la mitad exacta en la parte superior del canvas, sin importar la altura de las barras azules.
-                const logoY = -(logoSize / 2); 
+                // Centrado horizontalmente
+                const logoX = (canvas.width - logoWidth) / 2;
                 
-                ctx.drawImage(logoImage, logoX, logoY, logoSize, logoSize);
+                // Anclamos la Y a la mitad negativa de su altura (-42px en tamaño original). 
+                // Esto garantiza que siempre se corte a la mitad exacta en la parte superior.
+                const logoY = -(logoHeight / 2); 
+                
+                ctx.drawImage(logoImage, logoX, logoY, logoWidth, logoHeight);
                 ctx.restore();
             }
 
@@ -264,7 +267,7 @@
 
             // 3. Variables de Texto y Barras
             const baseFontSize = 65 * scale; 
-            const fontSize = 85 * scale;     
+            const fontSize = 75 * scale;     
             
             ctx.font = `700 ${fontSize}px "League Spartan", sans-serif`;
             ctx.textAlign = 'center';
@@ -329,16 +332,17 @@
             canvas.height = img.height * scale;
             ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-            // Marca de Agua para las imágenes extra (Mismas propiedades: 10% opacidad, 998.4px, recortada a la mitad)
+            // Marca de Agua para las imágenes extra (84x84px, 10% opacidad, recortada a la mitad)
             if (logoImage && logoImage.complete && logoImage.naturalHeight !== 0) {
                 ctx.save();
                 ctx.globalAlpha = 0.10; 
                 
-                const logoSize = 998.4 * scale;
-                const logoX = (canvas.width - logoSize) / 2;
-                const logoY = -(logoSize / 2); 
+                const logoWidth = 84 * scale;
+                const logoHeight = 84 * scale;
+                const logoX = (canvas.width - logoWidth) / 2;
+                const logoY = -(logoHeight / 2); 
 
-                ctx.drawImage(logoImage, logoX, logoY, logoSize, logoSize);
+                ctx.drawImage(logoImage, logoX, logoY, logoWidth, logoHeight);
                 ctx.restore();
             }
             return new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.95));
