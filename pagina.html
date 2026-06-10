@@ -36,7 +36,7 @@
     <nav class="bg-white border-b border-slate-200 px-8 py-4 flex justify-between items-center sticky top-0 z-10 shadow-sm">
         <div>
             <h1 class="text-2xl font-black text-slate-800 tracking-tight">Editor Masivo <span class="text-blue-600">EraDigital</span></h1>
-            <p class="text-sm text-slate-500">Logo a 84x84px (mitad superior recortada), opacidad 10%.</p>
+            <p class="text-sm text-slate-500">Formato 1440x1440 automático, subida múltiple y memoria robusta.</p>
         </div>
         <div class="flex gap-4 items-center">
             <button onclick="procesarYExportar()" id="btn-exportar" class="px-6 py-2 text-sm font-bold text-white bg-blue-600 rounded hover:bg-blue-700 shadow-sm transition flex items-center gap-2">
@@ -61,17 +61,16 @@
     <script>
         let loteCount = 0;
         
+        // Memoria Global: Previene bugs de exportación guardando directamente los objetos Image.
+        window.lotesData = {};
+
         // Cargar el LOGOCIRCULO.png automáticamente
         let logoImage = new Image();
         logoImage.src = 'LOGOCIRCULO.png';
         logoImage.onload = () => console.log('LOGOCIRCULO.png cargado correctamente como marca de agua.');
-        logoImage.onerror = () => console.warn('No se encontró LOGOCIRCULO.png en la carpeta. Asegúrate de que el archivo se llame exactamente así.');
+        logoImage.onerror = () => console.warn('No se encontró LOGOCIRCULO.png. Asegúrate de que el archivo esté en la misma carpeta.');
 
-        window.imagenesMemoria = {};
-
-        document.fonts.load('700 10px "League Spartan"').then(() => {
-            console.log('Fuente lista.');
-        });
+        document.fonts.load('700 10px "League Spartan"').then(() => console.log('Fuente lista.'));
 
         document.addEventListener('DOMContentLoaded', () => agregarLote());
 
@@ -80,9 +79,13 @@
         ========================================== */
         function agregarLote() {
             loteCount++;
-            const container = document.getElementById('editor-container');
             const loteId = `lote-${Date.now()}`;
+            
+            // Inicializar memoria para este lote
+            window.lotesData[loteId] = { mainImg: null, extras: [] };
 
+            const container = document.getElementById('editor-container');
+            
             const html = `
                 <div id="${loteId}" class="lote-item bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden" data-id="${loteCount}">
                     <div class="p-5 flex gap-5 items-start relative">
@@ -90,9 +93,9 @@
                         <div class="w-8 h-8 rounded bg-slate-800 text-white flex items-center justify-center font-bold text-sm shrink-0 mt-1">${loteCount}</div>
                         
                         <div class="w-1/3 shrink-0">
-                            <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Previsualización</label>
-                            <div class="border-2 border-slate-300 rounded bg-slate-800 h-44 flex flex-col items-center justify-center relative overflow-hidden group">
-                                <input type="file" accept="image/*" class="main-img-input absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20" onchange="cargarImagenPrincipal(this, '${loteId}')">
+                            <label class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Foto Principal (Se ajustará a 1440x1440)</label>
+                            <div class="border-2 border-slate-300 rounded bg-slate-800 aspect-square w-full flex flex-col items-center justify-center relative overflow-hidden group">
+                                <input type="file" accept="image/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20" onchange="cargarImagenPrincipal(this, '${loteId}')">
                                 
                                 <div class="preview-placeholder flex flex-col items-center text-slate-400 z-10 pointer-events-none transition group-hover:text-white">
                                     <i class="fa-solid fa-upload text-3xl mb-2"></i>
@@ -110,8 +113,12 @@
                     </div>
 
                     <div class="bg-slate-50 border-t border-slate-100 px-5 py-3 flex justify-between items-center">
-                        <span class="text-sm font-medium text-slate-600"><i class="fa-solid fa-layer-group mr-2"></i>Fotos Extra (Solo logo)</span>
-                        <button onclick="agregarFotoExtra('${loteId}')" class="text-sm text-blue-600 font-semibold px-3 py-1 bg-blue-50 rounded hover:bg-blue-100 transition">+ Agregar foto extra</button>
+                        <span class="text-sm font-medium text-slate-600"><i class="fa-solid fa-layer-group mr-2"></i>Fotos Extra (Se aplicará el Logo y corte 1440x1440)</span>
+                        
+                        <input type="file" multiple accept="image/*" id="file-multi-${loteId}" class="hidden" onchange="manejarExtrasMultiples(this, '${loteId}')">
+                        <button onclick="document.getElementById('file-multi-${loteId}').click()" class="text-sm text-blue-600 font-semibold px-3 py-1 bg-blue-50 rounded hover:bg-blue-100 transition shadow-sm">
+                            + Agregar fotos extra (Multiselección)
+                        </button>
                     </div>
 
                     <div id="extras-${loteId}" class="extras-container bg-slate-50 px-5 pb-4 space-y-3 empty:hidden"></div>
@@ -120,34 +127,13 @@
             container.insertAdjacentHTML('beforeend', html);
         }
 
-        function agregarFotoExtra(loteId) {
-            const container = document.getElementById(`extras-${loteId}`);
-            const childId = `extra-${Date.now()}`;
-            const html = `
-                <div id="${childId}" class="extra-item flex gap-4 items-center bg-white border border-slate-200 rounded p-3 pl-12 relative">
-                    <div class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300"><i class="fa-solid fa-arrow-turn-up rotate-90"></i></div>
-                    <div class="w-32 h-20 shrink-0 border border-dashed border-slate-300 rounded bg-slate-50 relative overflow-hidden group">
-                        <input type="file" accept="image/*" class="extra-img-input absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" onchange="cargarImagenExtra(this)">
-                        <div class="preview-placeholder absolute inset-0 flex flex-col items-center justify-center text-slate-400 group-hover:bg-slate-100 transition">
-                            <i class="fa-solid fa-plus"></i>
-                        </div>
-                    </div>
-                    <div class="flex-grow text-sm text-slate-500">
-                        <p class="font-medium text-slate-700">Foto complementaria</p>
-                    </div>
-                    <button onclick="eliminarElemento('${childId}')" class="p-2 text-slate-400 hover:text-red-500 bg-slate-50 rounded hover:bg-red-50"><i class="fa-regular fa-trash-can"></i></button>
-                </div>
-            `;
-            container.insertAdjacentHTML('beforeend', html);
-        }
-
         function eliminarElemento(id) { 
             document.getElementById(id)?.remove();
-            delete window.imagenesMemoria[id];
+            delete window.lotesData[id];
         }
 
         /* ==========================================
-           LÓGICA DE PREVISUALIZACIÓN Y FORMATO
+           LÓGICA DE MEMORIA Y PREVISUALIZACIÓN
         ========================================== */
         function fileToImage(file) {
             return new Promise((resolve, reject) => {
@@ -161,7 +147,7 @@
         async function cargarImagenPrincipal(input, loteId) {
             if (input.files && input.files[0]) {
                 const img = await fileToImage(input.files[0]);
-                window.imagenesMemoria[loteId] = img; 
+                window.lotesData[loteId].mainImg = img; // Guardar en memoria robusta
                 
                 const loteElement = document.getElementById(loteId);
                 loteElement.querySelector('.preview-placeholder').style.display = 'none';
@@ -171,26 +157,53 @@
             }
         }
 
-        function cargarImagenExtra(input) {
-            if (input.files && input.files[0]) {
-                const parent = input.parentElement;
-                let imgPreview = parent.querySelector('img.preview-img');
-                if (!imgPreview) {
-                    imgPreview = document.createElement('img');
-                    imgPreview.className = 'preview-img absolute inset-0 w-full h-full object-cover z-0 pointer-events-none';
-                    parent.appendChild(imgPreview);
-                }
-                imgPreview.src = URL.createObjectURL(input.files[0]);
-                parent.querySelector('.preview-placeholder').style.display = 'none';
+        // Nueva función para procesar MULTIPLES imágenes de un solo golpe
+        async function manejarExtrasMultiples(input, loteId) {
+            if (!input.files || input.files.length === 0) return;
+            
+            const container = document.getElementById(`extras-${loteId}`);
+            const files = Array.from(input.files);
+
+            for (let file of files) {
+                const img = await fileToImage(file);
+                const extraId = `extra-${Date.now()}-${Math.floor(Math.random()*1000)}`;
+                
+                // Guardamos la imagen en el arreglo de extras de este lote
+                window.lotesData[loteId].extras.push({ id: extraId, img: img });
+
+                // Renderizamos la miniatura visual en la UI
+                const html = `
+                    <div id="${extraId}" class="extra-item flex gap-4 items-center bg-white border border-slate-200 rounded p-3 pl-12 relative transition-all">
+                        <div class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300"><i class="fa-solid fa-arrow-turn-up rotate-90"></i></div>
+                        
+                        <div class="w-16 h-16 shrink-0 rounded bg-slate-100 overflow-hidden shadow-sm border border-slate-200">
+                            <img src="${img.src}" class="w-full h-full object-cover">
+                        </div>
+                        
+                        <div class="flex-grow text-sm text-slate-500 overflow-hidden">
+                            <p class="font-medium text-slate-700 truncate">${file.name}</p>
+                            <p class="text-xs">Se exportará a 1440x1440 + Logo</p>
+                        </div>
+                        
+                        <button onclick="eliminarExtra('${loteId}', '${extraId}')" class="p-2 text-slate-400 hover:text-red-500 bg-slate-50 rounded hover:bg-red-50"><i class="fa-regular fa-trash-can"></i></button>
+                    </div>
+                `;
+                container.insertAdjacentHTML('beforeend', html);
             }
+            
+            input.value = ""; // Limpiamos el input para que pueda volver a agregar más si quiere
+        }
+
+        function eliminarExtra(loteId, extraId) {
+            // Eliminar de memoria
+            window.lotesData[loteId].extras = window.lotesData[loteId].extras.filter(e => e.id !== extraId);
+            // Eliminar de UI
+            document.getElementById(extraId)?.remove();
         }
 
         function organizarTexto(texto) {
             if (texto.includes('\n')) {
-                return texto.split('\n')
-                            .map(l => l.trim())
-                            .filter(l => l !== '')
-                            .slice(0, 4); 
+                return texto.split('\n').map(l => l.trim()).filter(l => l !== '').slice(0, 4); 
             }
 
             const palabras = texto.trim().replace(/\s+/g, ' ').split(' ');
@@ -215,10 +228,10 @@
         }
 
         function actualizarPreview(loteId) {
-            const lote = document.getElementById(loteId);
-            const img = window.imagenesMemoria[loteId];
+            const img = window.lotesData[loteId].mainImg;
             if (!img) return;
 
+            const lote = document.getElementById(loteId);
             const texto = lote.querySelector('.main-text-input').value;
             const canvas = lote.querySelector('.preview-canvas');
             
@@ -228,36 +241,36 @@
         /* ==========================================
            MOTOR DE RENDERIZADO CENTRAL
         ========================================== */
+        // Dibuja la foto centrada y cortada (Center-Crop) para llenar el Canvas sin estirarse
+        function dibujarFondoRecortado(ctx, img, targetSize) {
+            const scaleCrop = Math.max(targetSize / img.width, targetSize / img.height);
+            const x = (targetSize / 2) - (img.width / 2) * scaleCrop;
+            const y = (targetSize / 2) - (img.height / 2) * scaleCrop;
+            ctx.drawImage(img, x, y, img.width * scaleCrop, img.height * scaleCrop);
+        }
+
         function dibujarEdicion(canvas, img, texto, isPreview = false) {
             const ctx = canvas.getContext('2d');
             
-            let scale = 1;
-            if (isPreview && img.width > 1000) {
-                scale = 1000 / img.width; 
-            }
+            // LA MAGIA DEL 1440x1440
+            // Si es preview usamos un tamaño menor (800) para rendimiento, si es exportación forzamos los 1440 px.
+            const TARGET_SIZE = isPreview ? 800 : 1440;
+            const scale = TARGET_SIZE / 1440; // Escala base 1 al exportar.
+
+            canvas.width = TARGET_SIZE;
+            canvas.height = TARGET_SIZE;
             
-            canvas.width = img.width * scale;
-            canvas.height = img.height * scale;
-            
-            // 1. Dibujar Imagen de Fondo
-            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            // 1. Dibujar Imagen de Fondo con recorte perfecto al centro
+            dibujarFondoRecortado(ctx, img, TARGET_SIZE);
 
             // 2. Dibujar Marca de Agua (LOGOCIRCULO.png)
             if (logoImage && logoImage.complete && logoImage.naturalHeight !== 0) {
                 ctx.save();
-                ctx.globalAlpha = 0.10; // Opacidad 10%
-                
-                // Tamaño exacto de 84x84px
+                ctx.globalAlpha = 0.10; 
                 const logoWidth = 84 * scale;
                 const logoHeight = 84 * scale;
-                
-                // Centrado horizontalmente
                 const logoX = (canvas.width - logoWidth) / 2;
-                
-                // Anclamos la Y a la mitad negativa de su altura (-42px en tamaño original). 
-                // Esto garantiza que siempre se corte a la mitad exacta en la parte superior.
                 const logoY = -(logoHeight / 2); 
-                
                 ctx.drawImage(logoImage, logoX, logoY, logoWidth, logoHeight);
                 ctx.restore();
             }
@@ -289,7 +302,7 @@
 
             const barX = (canvas.width - barWidth) / 2;
 
-            // 4. Dibujar Sombra Exacta parametrizada (Solo para el texto)
+            // 4. Dibujar Sombra Exacta
             const anguloRad = -45 * (Math.PI / 180);
             const distancia = 25 * scale;
 
@@ -298,7 +311,6 @@
             ctx.shadowOffsetX = Math.cos(anguloRad) * distancia; 
             ctx.shadowOffsetY = Math.sin(anguloRad) * distancia; 
 
-            // Matemáticas para centrar el texto con su TAMAÑO NUEVO dentro del bloque
             const textCenterY = (textTopEdge + textBottomEdge) / 2;
             const actualLineHeight = fontSize * 1.1;
             const actualTextHeight = lineas.length * actualLineHeight;
@@ -310,7 +322,6 @@
                 ctx.fillText(linea, canvas.width / 2, startY + (index * actualLineHeight));
             });
 
-            // Resetear sombra
             ctx.shadowColor = 'transparent';
             ctx.shadowBlur = 0; 
             ctx.shadowOffsetX = 0; 
@@ -322,24 +333,25 @@
             ctx.fillRect(barX, bottomBarY, barWidth, grosorLinea); 
         }
 
-        async function procesarImagenExtra(imgFile) {
-            const img = await fileToImage(imgFile);
+        async function procesarImagenExtra(img) {
             const canvas = document.createElement('canvas'); 
             const ctx = canvas.getContext('2d');
             
-            let scale = 1;
-            canvas.width = img.width * scale;
-            canvas.height = img.height * scale;
-            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            // Forzar a 1440x1440
+            const TARGET_SIZE = 1440;
+            canvas.width = TARGET_SIZE;
+            canvas.height = TARGET_SIZE;
 
-            // Marca de Agua para las imágenes extra (84x84px, 10% opacidad, recortada a la mitad)
+            // Cortar y rellenar fondo
+            dibujarFondoRecortado(ctx, img, TARGET_SIZE);
+
+            // Marca de Agua (84x84px, 10% opacidad, recortada a la mitad)
             if (logoImage && logoImage.complete && logoImage.naturalHeight !== 0) {
                 ctx.save();
                 ctx.globalAlpha = 0.10; 
-                
-                const logoWidth = 84 * scale;
-                const logoHeight = 84 * scale;
-                const logoX = (canvas.width - logoWidth) / 2;
+                const logoWidth = 84;
+                const logoHeight = 84;
+                const logoX = (TARGET_SIZE - logoWidth) / 2;
                 const logoY = -(logoHeight / 2); 
 
                 ctx.drawImage(logoImage, logoX, logoY, logoWidth, logoHeight);
@@ -366,31 +378,26 @@
                 const idNum = lote.getAttribute('data-id');
                 const loteId = lote.id; 
                 
-                const mainImgInput = lote.querySelector('.main-img-input');
-                const mainText = lote.querySelector('.main-text-input').value;
-                const extrasInputs = lote.querySelectorAll('.extra-img-input');
+                // Leemos los datos directamente de la memoria robusta
+                const data = window.lotesData[loteId];
+                if (!data || !data.mainImg) continue; // Si esta noticia no tiene foto principal, la ignoramos
 
+                const mainText = lote.querySelector('.main-text-input').value;
                 const folderName = `Noticia_${idNum}`;
                 const folder = zip.folder(folderName);
 
-                if (mainImgInput.files.length > 0) {
-                    const canvasExport = document.createElement('canvas'); 
-                    const img = window.imagenesMemoria[loteId]; 
-                    
-                    if (img) {
-                        dibujarEdicion(canvasExport, img, mainText, false); 
-                        const blobPrincipal = await new Promise(res => canvasExport.toBlob(res, 'image/jpeg', 0.95));
-                        folder.file(`1_Principal.jpg`, blobPrincipal);
-                    }
-                }
+                // Exportar Principal
+                const canvasExport = document.createElement('canvas'); 
+                dibujarEdicion(canvasExport, data.mainImg, mainText, false); 
+                const blobPrincipal = await new Promise(res => canvasExport.toBlob(res, 'image/jpeg', 0.95));
+                folder.file(`1_Principal.jpg`, blobPrincipal);
 
+                // Exportar Extras iterando la memoria
                 let extraCount = 2;
-                for (let extraInput of extrasInputs) {
-                    if (extraInput.files.length > 0) {
-                        const blobExtra = await procesarImagenExtra(extraInput.files[0]);
-                        folder.file(`${extraCount}_Extra.jpg`, blobExtra);
-                        extraCount++;
-                    }
+                for (let extra of data.extras) {
+                    const blobExtra = await procesarImagenExtra(extra.img);
+                    folder.file(`${extraCount}_Extra.jpg`, blobExtra);
+                    extraCount++;
                 }
             }
 
